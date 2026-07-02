@@ -1,0 +1,24 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model DashboardSnapshot {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  lastUpdated DateTime
+  payload     String
+  summary     String?
+}
+
+model RefreshLog {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  source    String
+  success   Boolean
+  message   String?
+  errors    String?
+}
