@@ -646,6 +646,11 @@ p {
   color: var(--text-secondary);
 }
 
+.data-source-card .data-source-error {
+  color: var(--danger);
+  font-weight: 800;
+}
+
 .data-source-card header a {
   display: inline-flex;
   min-height: 36px;

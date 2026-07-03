@@ -304,3 +304,26 @@ Arquivos de servico:
 - `src/services/googleDriveService.ts` integra com Google Drive quando `DATA_SOURCE=google-drive`.
 - `src/services/googleSheetsService.ts`
 - `src/services/microsoftGraphService.ts`
+
+## Fonte Google Drive por link publico
+
+O dashboard tambem pode tentar ler uma pasta publica do Google Drive sem OAuth.
+
+Configure no `.env`:
+
+```env
+DATA_SOURCE=googleDrivePublic
+GOOGLE_DRIVE_FOLDER_URL="https://drive.google.com/drive/folders/ID_DA_PASTA"
+```
+
+O backend lista os arquivos publicos da pasta, baixa as planilhas esperadas para `data/cache/google-drive` e le esse cache local.
+
+Arquivos esperados:
+
+- `processos.xlsx`
+- `cgi.xlsx`
+- `sydle.xlsx`
+
+Tambem continuam aceitos os nomes alternativos ja documentados.
+
+Importante: a pasta precisa estar compartilhada como `qualquer pessoa com o link pode ver`. Se o Google Drive responder com login ou permissao negada, `/api/health` mostrara erro. Para pasta privada, sera necessario implementar uma evolucao futura com OAuth ou service account.
