@@ -1,7 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
+import {
+  getGoogleDriveFolderId,
+  getGoogleDriveSourceLabel,
+  hasGoogleDriveConfig,
+  isGoogleDriveDataSource
+} from "@/services/googleDriveService";
 
 const DEFAULT_SPREADSHEETS_PATH = path.join("data", "spreadsheets");
+const GOOGLE_DRIVE_CACHE_PATH = path.join("data", "cache", "google-drive");
 
 export interface SpreadsheetsBasePathInfo {
   dataSource: string;
@@ -10,6 +17,7 @@ export interface SpreadsheetsBasePathInfo {
   path: string;
   exists: boolean;
   usingDefaultPath: boolean;
+  googleDriveFolderUrl: string | null;
 }
 
 export interface SpreadsheetFileMetadata {
@@ -22,17 +30,25 @@ export interface SpreadsheetFileMetadata {
 }
 
 export function getSpreadsheetsBasePath(): SpreadsheetsBasePathInfo {
+  const dataSource = process.env.DATA_SOURCE?.trim() || "local";
+  const googleDriveFolderUrl = normalizeEnvPath(process.env.GOOGLE_DRIVE_FOLDER_URL ?? process.env.GOOGLE_DRIVE_FOLDER_ID);
   const configuredPath = normalizeEnvPath(process.env.LOCAL_SPREADSHEETS_PATH);
-  const usingDefaultPath = !configuredPath;
-  const resolvedPath = configuredPath ? resolveLocalPath(configuredPath) : path.resolve(process.cwd(), DEFAULT_SPREADSHEETS_PATH);
+  const usesGoogleDrivePublic = normalizeDataSource(dataSource) === "googledrivepublic";
+  const usingDefaultPath = !configuredPath && !usesGoogleDrivePublic;
+  const resolvedPath = usesGoogleDrivePublic
+    ? path.resolve(/* turbopackIgnore: true */ process.cwd(), GOOGLE_DRIVE_CACHE_PATH)
+    : configuredPath
+      ? resolveLocalPath(configuredPath)
+      : path.resolve(/* turbopackIgnore: true */ process.cwd(), DEFAULT_SPREADSHEETS_PATH);
 
   return {
-    dataSource: process.env.DATA_SOURCE?.trim() || "local",
+    dataSource,
     configuredPath,
-    defaultPath: path.resolve(process.cwd(), DEFAULT_SPREADSHEETS_PATH),
+    defaultPath: path.resolve(/* turbopackIgnore: true */ process.cwd(), DEFAULT_SPREADSHEETS_PATH),
     path: resolvedPath,
     exists: directoryExists(resolvedPath),
-    usingDefaultPath
+    usingDefaultPath,
+    googleDriveFolderUrl
   };
 }
 
@@ -121,7 +137,7 @@ function normalizeEnvPath(value: string | undefined) {
 }
 
 function resolveLocalPath(value: string) {
-  return path.isAbsolute(value) ? path.normalize(value) : path.resolve(process.cwd(), value);
+  return path.isAbsolute(value) ? path.normalize(value) : path.resolve(/* turbopackIgnore: true */ process.cwd(), value);
 }
 
 function directoryExists(value: string) {
@@ -130,4 +146,8 @@ function directoryExists(value: string) {
   } catch {
     return false;
   }
+}
+
+function normalizeDataSource(value: string) {
+  return value.replace(/[^a-z0-9]/gi, "").toLowerCase();
 }

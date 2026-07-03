@@ -106,6 +106,8 @@ export interface DashboardData {
   spreadsheetsPath: string;
   spreadsheetsPathExists: boolean;
   usingDefaultSpreadsheetsPath: boolean;
+  googleDriveFolderId?: string | null;
+  dataSourceError?: string | null;
   files: Record<FileKey, FileSourceStatus>;
   executiveSummary: ExecutiveSummary;
   processos: Pick<
