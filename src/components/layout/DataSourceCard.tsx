@@ -13,7 +13,7 @@ export function DataSourceCard({ data, files }: DataSourceCardProps) {
       <header>
         <div>
 
-          <span>Fonte dos dados</span>
+          <span>Fonte dos dado</span>
           <strong>{data.dataSource === "googleDrivePublic" ? "Google Drive público" : data.spreadsheetsPath}</strong>
           <small>
             {data.dataSource === "googleDrivePublic"
