@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "description": "Dashboard executivo juridico para apresentacoes mensais a diretoria.",
+  "engines": {
+    "node": ">=22.12 <23"
+  },
   "scripts": {
     "dev": "next dev",
     "prebuild": "prisma generate",
