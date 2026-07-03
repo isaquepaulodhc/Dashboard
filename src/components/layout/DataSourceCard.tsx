@@ -12,7 +12,7 @@ export function DataSourceCard({ data, files }: DataSourceCardProps) {
     <section className="data-source-card" aria-label="Fonte dos dados">
       <header>
         <div>
-          <span>Fonte dos dados</span>
+          <span>Fonte dos dado</span>
           <strong>{data.spreadsheetsPath}</strong>
           <small>{data.spreadsheetsPathExists ? "Pasta encontrada" : "Pasta não encontrada"}</small>
         </div>
