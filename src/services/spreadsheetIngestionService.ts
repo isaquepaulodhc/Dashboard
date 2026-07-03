@@ -9,6 +9,12 @@ import {
   findFirstSpreadsheetFile,
   getSpreadsheetsBasePath
 } from "@/services/spreadsheetsPathService";
+import {
+  downloadGoogleDriveSpreadsheet,
+  findFirstGoogleDriveSpreadsheetFile,
+  getGoogleDriveSourceLabel,
+  isGoogleDriveDataSource
+} from "@/services/googleDriveService";
 
 export type NormalizedRow = Record<string, unknown>;
 
@@ -157,6 +163,11 @@ export function pickValue(row: NormalizedRow, keys: string[]) {
 
 export async function readFirstAvailableSpreadsheet(candidateNames: string[]): Promise<IngestionResult> {
   const candidates = expandSpreadsheetCandidates(candidateNames);
+
+  if (isGoogleDriveDataSource()) {
+    return readFirstAvailableGoogleDriveSpreadsheet(expandGoogleDriveCandidates(candidates));
+  }
+
   const basePathInfo = getSpreadsheetsBasePath();
   const fileMetadata = findFirstSpreadsheetFile(candidateNames, basePathInfo);
 
@@ -176,7 +187,7 @@ export async function readFirstAvailableSpreadsheet(candidateNames: string[]): P
   }
 
   try {
-    const rows = normalizeRows(await readSpreadsheetRows(fileMetadata.path));
+    const rows = normalizeRows(await readSpreadsheetRowsFromFile(fileMetadata.path));
 
     return {
       status: {
@@ -206,15 +217,81 @@ export async function readFirstAvailableSpreadsheet(candidateNames: string[]): P
   }
 }
 
-async function readSpreadsheetRows(filePath: string): Promise<Record<string, unknown>[]> {
+async function readFirstAvailableGoogleDriveSpreadsheet(candidates: string[]): Promise<IngestionResult> {
+  try {
+    const fileMetadata = await findFirstGoogleDriveSpreadsheetFile(candidates);
+
+    if (!fileMetadata) {
+      return {
+        status: {
+          found: false,
+          path: getGoogleDriveSourceLabel(),
+          name: null,
+          lastModified: null,
+          size: null,
+          rows: 0,
+          error: `Nenhum arquivo encontrado no Google Drive. Procurado por: ${candidates.join(", ")}`
+        },
+        rows: []
+      };
+    }
+
+    const buffer = await downloadGoogleDriveSpreadsheet(fileMetadata);
+    const rows = normalizeRows(await readSpreadsheetRowsFromBuffer(fileMetadata.name, buffer));
+
+    return {
+      status: {
+        found: true,
+        path: `gdrive://${fileMetadata.id}`,
+        name: fileMetadata.name,
+        lastModified: fileMetadata.modifiedTime,
+        size: fileMetadata.size ?? buffer.byteLength,
+        rows: rows.length,
+        error: null
+      },
+      rows
+    };
+  } catch (error) {
+    return {
+      status: {
+        found: false,
+        path: getGoogleDriveSourceLabel(),
+        name: null,
+        lastModified: null,
+        size: null,
+        rows: 0,
+        error: error instanceof Error ? error.message : "Erro desconhecido ao ler arquivo do Google Drive."
+      },
+      rows: []
+    };
+  }
+}
+
+async function readSpreadsheetRowsFromFile(filePath: string): Promise<Record<string, unknown>[]> {
   const extension = path.extname(filePath).toLowerCase();
 
   if (extension === ".csv") {
-    return readCsvRows(filePath);
+    return readCsvRowsFromBuffer(fs.readFileSync(filePath));
   }
 
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(filePath);
+  return readWorkbookRows(workbook);
+}
+
+async function readSpreadsheetRowsFromBuffer(fileName: string, buffer: Buffer<ArrayBuffer>): Promise<Record<string, unknown>[]> {
+  const extension = path.extname(fileName).toLowerCase();
+
+  if (extension === ".csv") {
+    return readCsvRowsFromBuffer(buffer);
+  }
+
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer as unknown as Parameters<typeof workbook.xlsx.load>[0]);
+  return readWorkbookRows(workbook);
+}
+
+function readWorkbookRows(workbook: ExcelJS.Workbook): Record<string, unknown>[] {
   const worksheet = workbook.worksheets[0];
 
   if (!worksheet) {
@@ -253,8 +330,7 @@ async function readSpreadsheetRows(filePath: string): Promise<Record<string, unk
   return rows;
 }
 
-function readCsvRows(filePath: string): Record<string, unknown>[] {
-  const buffer = fs.readFileSync(filePath);
+function readCsvRowsFromBuffer(buffer: Buffer): Record<string, unknown>[] {
   const text = decodeCsv(buffer);
   const parsed = Papa.parse<Record<string, unknown>>(text, {
     header: true,
@@ -267,6 +343,20 @@ function readCsvRows(filePath: string): Record<string, unknown>[] {
   }
 
   return parsed.data;
+}
+
+function expandGoogleDriveCandidates(candidates: string[]) {
+  const expanded = new Set(candidates);
+
+  for (const name of candidates) {
+    const extension = path.extname(name);
+
+    if (extension) {
+      expanded.add(name.slice(0, -extension.length));
+    }
+  }
+
+  return Array.from(expanded);
 }
 
 function decodeCsv(buffer: Buffer) {

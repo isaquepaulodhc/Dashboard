@@ -1,6 +1,6 @@
 # Diretoria Dashboard
 
-Dashboard executivo jurídico para apresentações mensais à diretoria. O MVP funciona localmente, lendo planilhas da pasta do projeto, sem chamadas para OpenAI, Google Drive, Google Sheets ou Microsoft Graph.
+Dashboard executivo juridico para apresentacoes mensais a diretoria. Por padrao, o MVP funciona localmente lendo planilhas da pasta do projeto. Em producao, pode ler arquivos Excel diretamente de uma pasta do Google Drive via API.
 
 ## Como instalar
 
@@ -16,6 +16,44 @@ Depois, acesse:
 - Dashboard: `http://localhost:3000`
 - Modo apresentação: `http://localhost:3000/presentation`
 - Saúde do app: `http://localhost:3000/api/health`
+
+## Deploy na Vercel com Google Drive
+
+Para publicar este projeto na Vercel lendo os arquivos Excel diretamente do Google Drive, configure o projeto como Next.js e cadastre as variaveis de ambiente abaixo em **Project Settings > Environment Variables**:
+
+```env
+DATA_SOURCE=google-drive
+DASHBOARD_REFRESH_SECONDS=60
+DATABASE_URL="file:/tmp/dashboard.db"
+
+GOOGLE_CLIENT_ID="..."
+GOOGLE_CLIENT_SECRET="..."
+GOOGLE_REFRESH_TOKEN="..."
+GOOGLE_DRIVE_FOLDER_ID="1u1bChpn8_BBD1BaINVThaS2o8f86XY2I"
+```
+
+Notas importantes:
+
+- A pasta do Drive precisa conter os arquivos `processos.xlsx`, `cgi.xlsx` e `sydle.xlsx`, ou os nomes alternativos descritos abaixo.
+- A conta Google usada para gerar o `GOOGLE_REFRESH_TOKEN` precisa ter acesso de leitura a pasta.
+- O OAuth precisa autorizar o escopo `https://www.googleapis.com/auth/drive.readonly`.
+- Se os arquivos forem Google Sheets nativos, o app tenta exportar cada planilha como `.xlsx` antes de processar.
+- O SQLite em `DATABASE_URL="file:/tmp/dashboard.db"` e temporario na Vercel. O dashboard funciona porque os dados principais vem das planilhas; snapshots/logs nao devem ser tratados como persistentes nesse modo.
+- Para historico persistente, troque o Prisma para Postgres/Neon antes de usar dados reais em producao.
+
+Com Git integrado, a Vercel usa:
+
+- Install Command: `npm install`
+- Build Command: `npm run build`
+- Output: automatico do Next.js
+
+Depois do deploy, valide:
+
+```text
+/api/health
+/api/dashboard
+/
+```
 
 ## Estrutura de dados
 
@@ -48,7 +86,7 @@ Arquivos `.csv` com os mesmos nomes-base também são aceitos. CSV separado por 
 
 ## Usando Google Drive sincronizado localmente
 
-Este MVP nao usa Google Drive API, Google Sheets API, OAuth ou integracao externa. A leitura continua sendo local: o dashboard apenas aponta para uma pasta do computador.
+No desenvolvimento local, a leitura pode continuar apontando para uma pasta do computador. Na Vercel, use `DATA_SOURCE=google-drive` para baixar os arquivos diretamente pela Google Drive API.
 
 Passo a passo:
 
@@ -91,9 +129,9 @@ Se `LOCAL_SPREADSHEETS_PATH` estiver vazio ou nao existir, o sistema usa o camin
 
 ### Aviso importante sobre Google Sheets
 
-Para este MVP, prefira manter os arquivos como Excel `.xlsx` dentro do Google Drive. Se o arquivo for convertido para Google Sheets nativo, o Drive para desktop pode criar apenas um atalho ou arquivo especial, e o dashboard pode nao conseguir ler como `.xlsx`.
+No modo local sincronizado pelo Google Drive para desktop, prefira manter os arquivos como Excel `.xlsx`. Se o arquivo for convertido para Google Sheets nativo, o Drive para desktop pode criar apenas um atalho ou arquivo especial, e o dashboard pode nao conseguir ler como `.xlsx`.
 
-A integracao com Google Sheets nativo ficara para evolucao futura via Google Sheets API.
+No modo `DATA_SOURCE=google-drive`, arquivos Google Sheets nativos sao exportados como `.xlsx` pela Drive API antes da leitura.
 
 ## Planilha de processos
 
@@ -261,8 +299,8 @@ Para publicação futura, o caminho recomendado é:
 4. Configurar autenticação, permissões e logs.
 5. Só então ativar conectores como Microsoft Graph ou Google Sheets.
 
-Arquivos de serviço já existem como preparação, mas não são chamados no MVP:
+Arquivos de servico:
 
+- `src/services/googleDriveService.ts` integra com Google Drive quando `DATA_SOURCE=google-drive`.
 - `src/services/googleSheetsService.ts`
-- `src/services/googleDriveService.ts`
 - `src/services/microsoftGraphService.ts`

@@ -1,7 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
+import {
+  getGoogleDriveFolderId,
+  getGoogleDriveSourceLabel,
+  hasGoogleDriveConfig,
+  isGoogleDriveDataSource
+} from "@/services/googleDriveService";
 
-const DEFAULT_SPREADSHEETS_PATH = path.join("data", "spreadsheets");
+const DEFAULT_SPREADSHEETS_PATH = path.join(process.cwd(), "data", "spreadsheets");
 
 export interface SpreadsheetsBasePathInfo {
   dataSource: string;
@@ -22,14 +28,27 @@ export interface SpreadsheetFileMetadata {
 }
 
 export function getSpreadsheetsBasePath(): SpreadsheetsBasePathInfo {
+  if (isGoogleDriveDataSource()) {
+    const sourceLabel = getGoogleDriveSourceLabel();
+
+    return {
+      dataSource: process.env.DATA_SOURCE?.trim() || "google-drive",
+      configuredPath: getGoogleDriveFolderId(),
+      defaultPath: sourceLabel,
+      path: sourceLabel,
+      exists: hasGoogleDriveConfig(),
+      usingDefaultPath: false
+    };
+  }
+
   const configuredPath = normalizeEnvPath(process.env.LOCAL_SPREADSHEETS_PATH);
   const usingDefaultPath = !configuredPath;
-  const resolvedPath = configuredPath ? resolveLocalPath(configuredPath) : path.resolve(process.cwd(), DEFAULT_SPREADSHEETS_PATH);
+  const resolvedPath = configuredPath ? resolveLocalPath(configuredPath) : DEFAULT_SPREADSHEETS_PATH;
 
   return {
     dataSource: process.env.DATA_SOURCE?.trim() || "local",
     configuredPath,
-    defaultPath: path.resolve(process.cwd(), DEFAULT_SPREADSHEETS_PATH),
+    defaultPath: DEFAULT_SPREADSHEETS_PATH,
     path: resolvedPath,
     exists: directoryExists(resolvedPath),
     usingDefaultPath
@@ -121,7 +140,7 @@ function normalizeEnvPath(value: string | undefined) {
 }
 
 function resolveLocalPath(value: string) {
-  return path.isAbsolute(value) ? path.normalize(value) : path.resolve(process.cwd(), value);
+  return path.isAbsolute(value) ? path.normalize(value) : path.resolve(/* turbopackIgnore: true */ process.cwd(), value);
 }
 
 function directoryExists(value: string) {
