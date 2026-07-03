@@ -13,8 +13,16 @@ export function DataSourceCard({ data, files }: DataSourceCardProps) {
       <header>
         <div>
           <span>Fonte dos dados</span>
-          <strong>{data.spreadsheetsPath}</strong>
-          <small>{data.spreadsheetsPathExists ? "Pasta encontrada" : "Pasta não encontrada"}</small>
+          <strong>{data.dataSource === "googleDrivePublic" ? "Google Drive público" : data.spreadsheetsPath}</strong>
+          <small>
+            {data.dataSource === "googleDrivePublic"
+              ? `Cache local: ${data.spreadsheetsPath}`
+              : data.spreadsheetsPathExists
+                ? "Pasta encontrada"
+                : "Pasta não encontrada"}
+          </small>
+          {data.googleDriveFolderId ? <small>Pasta Drive: {data.googleDriveFolderId}</small> : null}
+          {data.dataSourceError ? <small className="data-source-error">{data.dataSourceError}</small> : null}
         </div>
         <a href="/api/health" target="_blank" rel="noreferrer">
           <ExternalLink size={15} />
